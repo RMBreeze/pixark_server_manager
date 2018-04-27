@@ -2,6 +2,10 @@
 # Script.ps1
 #
 
+function Get-WarningInterval {
+	$durations = 15,10,5,4,3,2,1
+	return $durations
+}
 
 
 # SCRIPT BODY
@@ -354,29 +358,6 @@ function Build-ArgumentList {
 	return $arguments
 }
 
-$script:durations = @{ 
-	15 = 300
-
-}
-
-function Start-GracefulShutdown {
-	param([String]$shutdownReason = "Maintenance")
-	./mcrcon -c -H $host_ip -P $host_port -p $host_pass "broadcast Server restart in 15 minutes.\n\nFinish what you are doing and find a safe place to log out!" 
-	Start-Sleep 300
-	./mcrcon -c -H $host_ip -P $host_port -p $host_pass "broadcast Server restart in 10 minutes.\n\nFinish what you are doing and find a safe place to log out!" 
-	Start-Sleep 300
-	./mcrcon -c -H $host_ip -P $host_port -p $host_pass "broadcast Server restart in 5 minutes.\n\nFinish what you are doing and find a safe place to log out!"
-	Start-Sleep 60
-	./mcrcon -c -H $host_ip -P $host_port -p $host_pass "broadcast Server restart in 4 minutes.\n\nFinish what you are doing and find a safe place to log out!"
-	Start-Sleep 60
-	./mcrcon -c -H $host_ip -P $host_port -p $host_pass "broadcast Server restart in 3 minutes.\n\nFinish what you are doing and find a safe place to log out!"
-	Start-Sleep 60
-	./mcrcon -c -H $host_ip -P $host_port -p $host_pass "broadcast Server restart in 2 minutes.\n\nFinish what you are doing and find a safe place to log out!"
-	Start-Sleep 60
-	./mcrcon -c -H $host_ip -P $host_port -p $host_pass "broadcast Server restart in 1 minutes.\n\nFinish what you are doing and find a safe place to log out!"
-	Start-Sleep 60
-}
-
 function Import-SettingsFile {
 	$fileName = "settings.json"
 	$currentDir = $script:invocationDir
@@ -588,7 +569,7 @@ function Install-Server {
 	Update-ServerInfo	
 	Update-ServerCache
 	Start-RoboCopy -path $script:newServer.drivePath -isUpdate $FALSE
-	New-ServerStartScript -serverInfo $script:newServer
+	New-StartScript -serverInfo $script:newServer
 	Write-Host "Your new server has been successfully installed at" $script:newServer.drivePath"!"
 	pause
 }
@@ -612,7 +593,7 @@ function Start-RoboCopy {
 	pause
 }
 
-function New-ServerStartScript {
+function New-StartScript {
 	param([server_info]$serverInfo)	
 	$startScript = "start `"`" /NORMAL `""
     $startScript += $serverInfo.drivePath + "\ShooterGame\Binaries\Win64\PixARKServer.exe`" "
@@ -690,6 +671,11 @@ function Update-ServerCache {
 	Write-Host "---------------------------------------------------------`n"
 }
 
+function Ping-Server {
+	param([server_info]$serverInfo)	
+	$response = & .\mcrcon.exe -H $serverInfo.hostAdress -P $serverInfo.rconPort -p $serverInfo.serverPassword "saveworld"
+}
+
 function Get-PlayerList {
 	param([server_info]$serverInfo)
 	#$response =  & .\mcrcon.exe -H 127.0.0.1 -P 20069 -p 12345 "listplayers"
@@ -699,25 +685,20 @@ function Get-PlayerList {
 
 function Stop-Server {
 	param([server_info]$serverInfo)
-	$response =  & .\mcrcon.exe -H 127.0.0.1 -P 20069 -p 12345 "saveworld"
-	$response =  & .\mcrcon.exe -H 127.0.0.1 -P 20069 -p 12345 "DoExit"
-	#$response = & .\mcrcon.exe -H $serverInfo.hostAdress -P $serverInfo.rconPort -p $serverInfo.serverPassword "saveworld"
-	#$response = & .\mcrcon.exe -H $serverInfo.hostAdress -P $serverInfo.rconPort -p $serverInfo.serverPassword "shutdown"
+	#$response =  & .\mcrcon.exe -H 127.0.0.1 -P 20069 -p 12345 "saveworld"
+	#$response =  & .\mcrcon.exe -H 127.0.0.1 -P 20069 -p 12345 "DoExit"
+	$response = & .\mcrcon.exe -H $serverInfo.hostAdress -P $serverInfo.rconPort -p $serverInfo.serverPassword "saveworld"
+	$response = & .\mcrcon.exe -H $serverInfo.hostAdress -P $serverInfo.rconPort -p $serverInfo.serverPassword "shutdown"
 }
 
-function Get-WarningInterval {
-	$durations = 15,10,5,4,3,2,1
-	return $durations
+function Assert-ServerOnline {
+	
 }
 
 function Assert-NoPlayersOnline {
 	param([server_info]$serverInfo)
 	$response = Get-PlayerList -serverInfo $serverInfo
-	if ($response -match "No Players Connected") {		
-		$true
-	} else {		
-		$false
-	}
+	return ($response -match "No Players Connected")
 }
 
 function Send-ServerBroadcast {
@@ -803,18 +784,6 @@ class manager_settings{
 	[String]$serverRoot
 	[String]$serverCacheDir
 	[System.Collections.ArrayList]$servers
-}
-
-function Get-DelayDurations {
-	$durations = @{}
-	$durations.Add(15,300)
-	$durations.Add(10,300)
-	$durations.Add(5,60)
-	$durations.Add(4,60)
-	$durations.Add(3,60)
-	$durations.Add(2,60)
-	$durations.Add(1,60)
-	return $durations
 }
 
 function Perform-PreChecks {
